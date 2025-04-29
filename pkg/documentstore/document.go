@@ -1,8 +1,7 @@
 package documentstore
 
 import (
-	"lesson4/pkg/err"
-	"log/slog"
+	"fmt"
 	"reflect"
 )
 
@@ -83,29 +82,28 @@ func UnmarshalDocument(doc *Document, output any) error {
 	v := reflect.ValueOf(output)
 
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-		slog.Error("document bad struct")
-		return err.ErrUnsupportedDocumentField
+		return fmt.Errorf("output is not a pointer to a struct")
 	}
-
 	stValue := v.Elem()
 	stType := stValue.Type()
-
 	for i := 0; i < stType.NumField(); i++ {
 		f := stType.Field(i)
 		fValue := stValue.Field(i)
 		if !fValue.CanSet() {
 			continue
 		}
-		if val, ok := doc.Fields[f.Name]; ok {
+		jsonTag := f.Tag.Get("json")
+		if jsonTag == "" {
+			jsonTag = f.Name
+		}
+		if val, ok := doc.Fields[jsonTag]; ok {
 			valR := reflect.ValueOf(val.Value)
 			if valR.Type().AssignableTo(fValue.Type()) {
 				fValue.Set(valR)
 			} else {
-				slog.Error("document not Unmarshal")
-				return err.ErrUnsupportedDocumentField
+				return fmt.Errorf("type mismatch for field %s: expected %s but got %s", f.Name, fValue.Type(), valR.Type())
 			}
 		}
 	}
-	slog.Info("document Unmarshal")
 	return nil
 }

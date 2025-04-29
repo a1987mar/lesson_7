@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"lesson4/pkg/users"
 	"log/slog"
 
 	"lesson4/pkg/documentstore"
-	"lesson4/pkg/users"
 )
 
 func main() {
@@ -44,48 +44,60 @@ func unmarshalExample() {
 
 func lesson7() {
 
-	slog.Info("Creating user")
-	s := users.NewService()
-	d1 := documentstore.Document{Fields: make(map[string]documentstore.DocumentField)}
-	d1.Fields["id-1"] = documentstore.DocumentField{
-		Type:  documentstore.DocumentFieldTypeString,
-		Value: "setup.exe",
+	slog.Info("start app")
+	doc1 := []documentstore.Document{
+		{
+			Fields: map[string]documentstore.DocumentField{
+				"id":   {Type: documentstore.DocumentFieldTypeString, Value: "u1"},
+				"name": {Type: documentstore.DocumentFieldTypeString, Value: "Andrii"},
+			},
+		},
+		{
+			Fields: map[string]documentstore.DocumentField{
+				"id":   {Type: documentstore.DocumentFieldTypeString, Value: "u2"},
+				"name": {Type: documentstore.DocumentFieldTypeString, Value: "Lubov"},
+			},
+		},
+		{
+			Fields: map[string]documentstore.DocumentField{
+				"id":   {Type: documentstore.DocumentFieldTypeString, Value: "u4"},
+				"name": {Type: documentstore.DocumentFieldTypeString, Value: "Taras"},
+			},
+		},
+		{
+			Fields: map[string]documentstore.DocumentField{
+				"id":   {Type: documentstore.DocumentFieldTypeString, Value: "u3"},
+				"name": {Type: documentstore.DocumentFieldTypeString, Value: "Roman"},
+			},
+		},
 	}
 
-	cfg1 := documentstore.CollectionConfig{PrimaryKey: "id-1"}
-	_, err := s.CreateUser("id-1", "UserTest-1", cfg1, &d1)
-	if err != nil {
-		slog.Error("Failed to create", err)
+	usersCreated := make([]users.User, 0)
+	slog.Info("add new store")
+	st := documentstore.NewStore()
+	ser := users.NewService(st)
+	for i, doc := range doc1 {
+		u1, err := ser.CreateUser(doc.Fields["id"].Value.(string), doc.Fields["name"].Value.(string), &doc)
+		if err != nil {
+			fmt.Println("", i+1, err)
+		}
+		usersCreated = append(usersCreated, *u1)
 	}
-	slog.Info("user created successfully")
-
-	slog.Info("Creating user")
-	s2 := users.NewService()
-	d2 := documentstore.Document{Fields: make(map[string]documentstore.DocumentField)}
-	d2.Fields["id-2"] = documentstore.DocumentField{
-		Type:  documentstore.DocumentFieldTypeString,
-		Value: "main.go",
-	}
-	cfg2 := documentstore.CollectionConfig{PrimaryKey: "id-2"}
-	_, err = s2.CreateUser("id-2", "UserTest-2", cfg2, &d2)
-	if err != nil {
-		slog.Error("Failed to create", err)
-	}
-	slog.Info("user created successfully")
-
-	//d := []byte{123, 10, 32, 34, 99, 111, 108, 108, 101, 99, 116, 105, 111, 110, 115, 34, 58, 32, 123, 10, 32, 34, 105, 100, 45, 49, 34, 58, 32, 123, 10, 32, 34, 100, 111, 99, 117, 109, 101, 110, 116, 115, 34, 58, 32, 123, 10, 32, 34, 105, 100, 45, 49, 34, 58, 32, 123, 10, 32, 34, 102, 105, 101, 108, 100, 115, 34, 58, 32, 123, 10, 32, 34, 105, 100, 45, 49, 34, 58, 32, 123, 10, 32, 34, 116, 121, 112, 101, 34, 58, 32, 34, 115, 116, 114, 105, 110, 103, 34, 44, 10, 32, 34, 118, 97, 108, 117, 101, 34, 58, 32, 34, 115, 101, 116, 117, 112, 46, 101, 120, 101, 34, 10, 32, 125, 10, 32, 125, 10, 32, 125, 10, 32, 125, 44, 10, 32, 34, 99, 111, 110, 102, 105, 103, 34, 58, 32, 123, 10, 32, 34, 99, 103, 103, 34, 58, 32, 34, 105, 100, 45, 49, 34, 10, 32, 125, 10, 32, 125, 10, 32, 125, 10, 32, 125}
 	//
-	//doc, err := documentstore.NewStoreFromDump(d)
-	//if err != nil {
-	//	log.Error(err)
-	//}
-	//
-	//fmt.Println(doc.Dump())
-
-	sF, err := documentstore.NewStoreFromFile("id-2")
+	fmt.Printf("%+v USERS \n", usersCreated)
+	getU, err := ser.GetUser("u2")
 	if err != nil {
-		slog.Info(err.Error())
+		fmt.Println(err)
 	}
-	fmt.Printf("%+v \n", sF)
+	fmt.Printf("%+v знайдено \n", getU)
+	//
+	delUser := ser.DeleteUser("u1")
+	fmt.Println(delUser)
+
+	uList, err := ser.ListUsers()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(uList)
 	slog.Info("App done")
 }

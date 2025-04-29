@@ -10,32 +10,46 @@ import (
 )
 
 type Store struct {
-	Collections map[string]*Collection `json:"collections,omitempty"`
+	collections map[string]*Collection
 }
 
 func NewStore() *Store {
 	return &Store{
-		Collections: make(map[string]*Collection),
+		collections: make(map[string]*Collection),
 	}
 }
 
-func (s *Store) CreateCollection(name string, cfg *CollectionConfig) (error, *Collection) {
+type DTOStore struct {
+	Collections map[string]DTOCollection `json:"collections"`
+}
+
+func (s *Store) ToDto() DTOStore {
+	dtoCollections := make(map[string]DTOCollection, len(s.collections))
+	for name, coll := range s.collections {
+		dtoCollections[name] = coll.ToDto()
+	}
+	return DTOStore{
+		Collections: dtoCollections,
+	}
+}
+func (s *Store) CreateCollection(name, id string) (error, *Collection) {
 	// Створюємо нову колекцію і повертаємо `true` якщо колекція була створена
 	// Якщо ж колекція вже створеня то повертаємо `false` та nil
-	if _, exists := s.Collections[name]; exists {
-		slog.Error("collection already exists")
+	if _, exists := s.collections[name]; exists {
 		return err.ErrCollectionAlreadyExists, nil
 	}
 	coll := &Collection{
-		Documents: make(map[string]Document),
-		Config:    *cfg}
-	s.Collections[name] = coll
+		config: CollectionConfig{
+			PrimaryKey: id,
+		}}
+	s.collections[name] = coll
 	slog.Info("collection added")
+
 	return nil, coll
 }
 
 func (s *Store) GetCollection(name string) (*Collection, error) {
-	if colect, ok := s.Collections[name]; ok {
+	if colect, ok := s.collections[name]; ok {
 		return colect, nil
 	}
 	slog.Error("collection not found")
@@ -43,8 +57,8 @@ func (s *Store) GetCollection(name string) (*Collection, error) {
 }
 
 func (s *Store) DeleteCollection(name string) bool {
-	if _, ok := s.Collections[name]; ok {
-		delete(s.Collections, name)
+	if _, ok := s.collections[name]; ok {
+		delete(s.collections, name)
 		slog.Info("collection delete - %s")
 		return true
 	}
@@ -58,7 +72,7 @@ func NewStoreFromDump(dump []byte) (*Store, error) {
 	if err := json.Unmarshal(dump, &s); err != nil {
 		return nil, err
 	}
-	if len(s.Collections) == 0 {
+	if len(s.collections) == 0 {
 		slog.Info("collection not added")
 		return nil, err.ErrNotFound
 	}
@@ -74,43 +88,48 @@ func (s *Store) Dump() ([]byte, error) {
 	return sToJson, nil
 }
 
-//
-//// Значення яке повертає метод `store.Dump()` має без помилок оброблятись функцією `NewStoreFromDump`
-//
-
 func NewStoreFromFile(filename string) (*Store, error) {
 	// Робить те ж саме що і функція `NewStoreFromDump`, але сам дамп має діставатись з файлу
-	file := strings.Builder{}
-	file.WriteString(filename + ".json")
 
-	//	f := fmt.Sprintf("%s.json", filename)
-	dump, err := os.ReadFile(file.String())
+	fileString := strings.Builder{}
+	fileString.WriteString(filename + ".json")
+
+	dump, err := os.ReadFile(fileString.String())
 	if err != nil {
 		slog.Error("file not read")
 		return nil, err
 	}
-	slog.Info("file read successfully")
-	var s Store
-	if err := json.Unmarshal(dump, &s); err != nil {
+	slog.Info("file read successfully " + fileString.String())
+	s := NewStore()
+	var dto DTOStore
+	if err := json.Unmarshal(dump, &dto); err != nil {
 
 		return nil, err
 	}
-	if len(s.Collections) == 0 {
+	for name, dtoColl := range dto.Collections {
+		coll := &Collection{
+			documents: dtoColl.Documents,
+			config:    dtoColl.Config,
+		}
+		s.collections[name] = coll
+	}
+	if len(s.collections) == 0 {
 		slog.Error("no collections found in store from file")
 		return nil, fmt.Errorf("no collections in store")
 	}
-
-	return &s, nil
+	return s, nil
 }
 
 func (s *Store) DumpToFile(filename string) error {
 	// Робить те ж саме що і метод  `Dump`, але записує у файл замість того щоб повертати сам дамп
 	sDump, err := s.Dump()
 	if err != nil {
+
 		fmt.Println(err)
 	}
-	file := strings.Builder{}
-	file.WriteString(filename + ".json")
-	slog.Info(file.String())
-	return os.WriteFile(file.String(), sDump, 0644)
+
+	fileString := strings.Builder{}
+	fileString.WriteString(filename + ".json")
+
+	return os.WriteFile(fileString.String(), sDump, 0644)
 }

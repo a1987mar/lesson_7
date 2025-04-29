@@ -6,9 +6,13 @@ import (
 )
 
 func TestCollection_Put(t *testing.T) {
+	docs := map[string]Document{}
+	docs["id1"] = GetTestDocuments(GetTestFields("123", DocumentFieldTypeNumber))
+	docs["id2"] = GetTestDocuments(GetTestFields("id2", DocumentFieldTypeString))
+	docs["id3"] = GetTestDocuments(GetTestFields("true", DocumentFieldTypeBool))
 	type fields struct {
-		Documents map[string]Document
-		Config    CollectionConfig
+		documents map[string]Document
+		config    CollectionConfig
 	}
 	type args struct {
 		doc Document
@@ -22,8 +26,8 @@ func TestCollection_Put(t *testing.T) {
 		{
 			name: "valid document with correct primary key",
 			fields: fields{
-				Documents: map[string]Document{},
-				Config:    CollectionConfig{PrimaryKey: "id"},
+				documents: docs,
+				config:    CollectionConfig{PrimaryKey: "id"},
 			},
 			args: args{
 				doc: Document{
@@ -40,8 +44,8 @@ func TestCollection_Put(t *testing.T) {
 		{
 			name: "missing primary key field",
 			fields: fields{
-				Documents: map[string]Document{},
-				Config:    CollectionConfig{PrimaryKey: "id"},
+				documents: map[string]Document{},
+				config:    CollectionConfig{PrimaryKey: "id"},
 			},
 			args: args{
 				doc: Document{
@@ -58,8 +62,8 @@ func TestCollection_Put(t *testing.T) {
 		{
 			name: "primary key not string type",
 			fields: fields{
-				Documents: map[string]Document{},
-				Config:    CollectionConfig{PrimaryKey: "id"},
+				documents: map[string]Document{},
+				config:    CollectionConfig{PrimaryKey: "id"},
 			},
 			args: args{
 				doc: Document{
@@ -77,8 +81,8 @@ func TestCollection_Put(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Collection{
-				Documents: tt.fields.Documents,
-				Config:    tt.fields.Config,
+				documents: tt.fields.documents,
+				config:    tt.fields.config,
 			}
 			if err := s.Put(tt.args.doc); (err != nil) != tt.wantErr {
 				t.Errorf("Put() error = %v, wantErr %v", err, tt.wantErr)
@@ -88,6 +92,11 @@ func TestCollection_Put(t *testing.T) {
 }
 
 func TestCollection_Get(t *testing.T) {
+	docs := map[string]Document{}
+	docs["id1"] = GetTestDocuments(GetTestFields("123", DocumentFieldTypeNumber))
+	docs["id2"] = GetTestDocuments(GetTestFields("id2", DocumentFieldTypeString))
+	docs["id3"] = GetTestDocuments(GetTestFields("true", DocumentFieldTypeBool))
+
 	type fields struct {
 		Documents map[string]Document
 		Config    CollectionConfig
@@ -104,7 +113,7 @@ func TestCollection_Get(t *testing.T) {
 		{
 			name: "valid document with correct primary key",
 			fields: fields{
-				Documents: map[string]Document{},
+				Documents: docs,
 				Config:    CollectionConfig{PrimaryKey: "id"},
 			},
 			args: args{
@@ -160,8 +169,8 @@ func TestCollection_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Collection{
-				Documents: tt.fields.Documents,
-				Config:    tt.fields.Config,
+				documents: tt.fields.Documents,
+				config:    tt.fields.Config,
 			}
 			if err := s.Put(tt.args.doc); (err != nil) != tt.wantErr {
 				t.Errorf("Put() error = %v, wantErr %v", err, tt.wantErr)
@@ -171,6 +180,11 @@ func TestCollection_Get(t *testing.T) {
 }
 
 func TestCollection_Delete(t *testing.T) {
+	docs := map[string]Document{}
+	docs["id"] = GetTestDocuments(GetTestFields("id", DocumentFieldTypeNumber))
+	docs["id2"] = GetTestDocuments(GetTestFields("id2", DocumentFieldTypeString))
+	docs["id3"] = GetTestDocuments(GetTestFields("id3", DocumentFieldTypeString))
+
 	type fields struct {
 		Documents map[string]Document
 		Config    CollectionConfig
@@ -185,31 +199,33 @@ func TestCollection_Delete(t *testing.T) {
 		want   bool
 	}{
 		{
-			name: "valid document with correct primary key",
+			name: "DELETE document with correct primary key",
 			fields: fields{
-				Documents: map[string]Document{},
+				Documents: docs,
 				Config:    CollectionConfig{PrimaryKey: "id"},
 			},
 			args: args{
 				key: "id",
 			},
+			want: true,
 		},
 		{
 			name: "missing primary key field",
 			fields: fields{
-				Documents: map[string]Document{},
-				Config:    CollectionConfig{PrimaryKey: "id"},
+				Documents: docs,
+				Config:    CollectionConfig{PrimaryKey: "id4"},
 			},
 			args: args{
-				"id",
+				"id4",
 			},
+			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Collection{
-				Documents: tt.fields.Documents,
-				Config:    tt.fields.Config,
+				documents: tt.fields.Documents,
+				config:    tt.fields.Config,
 			}
 			if got := s.Delete(tt.args.key); got != tt.want {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
@@ -219,6 +235,10 @@ func TestCollection_Delete(t *testing.T) {
 }
 
 func TestCollection_List(t *testing.T) {
+	docs := map[string]Document{}
+	docs["id1"] = GetTestDocuments(GetTestFields("id1", DocumentFieldTypeNumber))
+	docs["id2"] = GetTestDocuments(GetTestFields("id2", DocumentFieldTypeString))
+	docs["id3"] = GetTestDocuments(GetTestFields("id3", DocumentFieldTypeString))
 	tests := []struct {
 		name string
 		s    *Collection
@@ -226,8 +246,8 @@ func TestCollection_List(t *testing.T) {
 	}{
 		{name: "valid List with correct documnet",
 			s: &Collection{
-				Documents: map[string]Document{},
-				Config: CollectionConfig{
+				documents: map[string]Document{},
+				config: CollectionConfig{
 					PrimaryKey: "id-1",
 				},
 			},
@@ -237,14 +257,14 @@ func TestCollection_List(t *testing.T) {
 		{
 			name: "collection with one document",
 			s: &Collection{
-				Documents: map[string]Document{
+				documents: map[string]Document{
 					"doc1": {
 						Fields: map[string]DocumentField{
 							"id": {Type: DocumentFieldTypeString, Value: "123"},
 						},
 					},
 				},
-				Config: CollectionConfig{
+				config: CollectionConfig{
 					PrimaryKey: "id",
 				},
 			},
@@ -264,4 +284,25 @@ func TestCollection_List(t *testing.T) {
 			}
 		})
 	}
+}
+
+func GetTestFields(v string, t DocumentFieldType) map[string]DocumentField {
+	docs := make(map[string]DocumentField)
+	docs[v] = DocumentField{
+		Type:  DocumentFieldTypeNumber,
+		Value: v,
+	}
+	return docs
+}
+
+func GetTestDocuments(fields ...map[string]DocumentField) Document {
+	document := Document{
+		Fields: make(map[string]DocumentField),
+	}
+	for _, field := range fields {
+		for k, v := range field {
+			document.Fields[k] = v
+		}
+	}
+	return document
 }

@@ -15,7 +15,7 @@ func BenchmarkNewStore(b *testing.B) {
 
 func BenchmarkReadDamp(b *testing.B) {
 	store := NewStore()
-	store.CreateCollection("bench", &CollectionConfig{PrimaryKey: "id"})
+	store.CreateCollection("bench", "id")
 	store.DumpToFile("bench")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -33,7 +33,7 @@ func TestStore_CreateCollection(t *testing.T) {
 	}
 	type args struct {
 		name string
-		cfg  *CollectionConfig
+		id   string
 	}
 	tests := []struct {
 		name        string
@@ -49,7 +49,6 @@ func TestStore_CreateCollection(t *testing.T) {
 			},
 			args: args{
 				name: "users",
-				cfg:  &CollectionConfig{PrimaryKey: "id"},
 			},
 			wantErr:     nil,
 			wantCreated: true,
@@ -63,7 +62,6 @@ func TestStore_CreateCollection(t *testing.T) {
 			},
 			args: args{
 				name: "users",
-				cfg:  &CollectionConfig{PrimaryKey: "id"},
 			},
 			wantErr:     err.ErrCollectionAlreadyExists,
 			wantCreated: false,
@@ -73,9 +71,9 @@ func TestStore_CreateCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Store{
-				Collections: tt.fields.Collections,
+				collections: tt.fields.Collections,
 			}
-			err, coll := s.CreateCollection(tt.args.name, tt.args.cfg)
+			err, coll := s.CreateCollection(tt.args.name, tt.args.id)
 
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("CreateCollection() error = %v, wantErr %v", err, tt.wantErr)
@@ -94,6 +92,7 @@ func TestStore_GetCollection(t *testing.T) {
 	}
 	type args struct {
 		name string
+		id   string
 	}
 	tests := []struct {
 		name        string
@@ -105,8 +104,8 @@ func TestStore_GetCollection(t *testing.T) {
 		{name: "collection exists",
 			fields: fields{
 				Collections: map[string]*Collection{
-					"users": {Documents: make(map[string]Document),
-						Config: CollectionConfig{
+					"users": {documents: make(map[string]Document),
+						config: CollectionConfig{
 							PrimaryKey: "id",
 						}},
 				},
@@ -132,7 +131,7 @@ func TestStore_GetCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Store{
-				Collections: tt.fields.Collections,
+				collections: tt.fields.Collections,
 			}
 			got, err := s.GetCollection(tt.args.name)
 			if !errors.Is(err, tt.wantErr) {
@@ -162,8 +161,8 @@ func TestStore_DeleteCollection(t *testing.T) {
 		{name: "collection exists",
 			fields: fields{
 				Collections: map[string]*Collection{
-					"users": {Documents: make(map[string]Document),
-						Config: CollectionConfig{
+					"users": {documents: make(map[string]Document),
+						config: CollectionConfig{
 							PrimaryKey: "id",
 						}},
 				},
@@ -186,7 +185,7 @@ func TestStore_DeleteCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Store{
-				Collections: tt.fields.Collections,
+				collections: tt.fields.Collections,
 			}
 			if got := s.DeleteCollection(tt.args.name); got != tt.want {
 				t.Errorf("DeleteCollection() = %v, want %v", got, tt.want)

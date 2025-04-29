@@ -6,63 +6,78 @@ import (
 	"log/slog"
 )
 
+const (
+	Users = "name"
+	Key   = "id"
+)
+
 type User struct {
-	ID   string                         `json:"id"`
-	Name string                         `json:"name"`
-	Cfg  documentstore.CollectionConfig `json:"cfg"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Service struct {
-	coll  documentstore.Store
-	users map[string]User
+	coll *documentstore.Collection
 }
 
-func NewService() *Service {
-	return &Service{
-		coll:  *documentstore.NewStore(),
-		users: make(map[string]User),
+func NewService(s *documentstore.Store) Service {
+	s.CreateCollection(Users, Key)
+	collect, _ := s.GetCollection(Users)
+	return Service{
+		coll: collect,
 	}
 }
 
-func (s *Service) CreateUser(id, name string, cfg documentstore.CollectionConfig, doc *documentstore.Document) (*User, error) {
-	user := User{ID: id, Name: name, Cfg: cfg}
-	if _, exists := s.users[user.ID]; exists {
-		slog.Info("user not added")
+func (s *Service) CreateUser(id, name string, doc *documentstore.Document) (*User, error) {
+	if _, er := s.coll.Get(id); er == nil {
 		return nil, err.ErrCreatedUser
 	}
+	if er := s.coll.Put(*doc); er != nil {
+		slog.Error(err.ErrAddUser.Error())
+		return nil, err.ErrAddUser
+	}
 
-	s.users[user.ID] = user
-	s.coll.CreateCollection(user.ID, &user.Cfg)
-	getCol, _ := s.coll.GetCollection(id)
-	getCol.Put(*doc)
-	s.coll.DumpToFile(id)
-	slog.Info("user added")
-	return &user, nil
+	u := User{
+		ID:   id,
+		Name: name,
+	}
+	slog.Info("add user", slog.Any("userId", u.ID))
+	return &u, nil
 }
 
 func (s *Service) ListUsers() ([]User, error) {
-	sList := make([]User, 0, len(s.users))
-	for _, v := range s.users {
-		sList = append(sList, v)
-	}
-	if len(sList) > 0 {
-		return sList, nil
+	tList := s.coll.List()
+	if len(tList) > 0 {
+		ulist := make([]User, 0, len(tList))
+		for _, v := range tList {
+			u := User{}
+			er := documentstore.UnmarshalDocument(&v, &u)
+			if er != nil {
+				slog.Error(er.Error())
+			}
+			ulist = append(ulist, u)
+		}
+		return ulist, nil
 	}
 	return nil, err.ErrListEmpty
 }
 
 func (s *Service) GetUser(userID string) (*User, error) {
-	if kUser, ok := s.users[userID]; ok {
-		return &kUser, nil
+	doc, er := s.coll.Get(userID)
+	if er != nil {
+		return nil, er
 	}
-	slog.Info("user not found")
-	return nil, err.ErrNotFound
+	u := User{}
+	er = documentstore.UnmarshalDocument(doc, &u)
+	if er != nil {
+		return nil, err.ErrCollectionAlreadyExists
+	}
+	return &u, nil
 }
 
 func (s *Service) DeleteUser(userID string) error {
-	if _, ok := s.users[userID]; ok {
-		delete(s.users, userID)
-		slog.Info("deleted user")
+	if ex := s.coll.Delete(userID); ex {
+		slog.Info("delete user", slog.Any("userId", userID))
 		return nil
 	}
 	return err.ErrNotFound

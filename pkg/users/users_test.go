@@ -7,109 +7,31 @@ import (
 )
 
 func BenchmarkCreateUser(b *testing.B) {
-
+	st := documentstore.NewStore()
+	s := NewService(st)
+	_, _ = st.CreateCollection("name", "id")
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		s := NewService()
-
 		d1 := documentstore.Document{
-			Fields: map[string]documentstore.DocumentField{
-				"id1": {
-					Type:  documentstore.DocumentFieldTypeString,
-					Value: "user1",
-				},
-			},
+			Fields: GetTestFields("u1", "Andrii", documentstore.DocumentFieldTypeString),
 		}
-		s.CreateUser("id1", "user1", documentstore.CollectionConfig{PrimaryKey: "id1"}, &d1)
-	}
-}
-
-func TestService_CreateUser(t *testing.T) {
-	type args struct {
-		id   string
-		name string
-		cfg  documentstore.CollectionConfig
-		doc  *documentstore.Document
-	}
-	tests := []struct {
-		name    string
-		s       *Service
-		args    args
-		want    *User
-		wantErr bool
-	}{
-		{
-			name: "Create collection with valid doc",
-			s:    NewService(),
-			args: args{
-				id:   "id1",
-				name: "user1",
-				cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"},
-				doc: &documentstore.Document{
-					Fields: map[string]documentstore.DocumentField{
-						"id1": {
-							Type:  documentstore.DocumentFieldTypeString,
-							Value: "user1",
-						},
-					},
-				},
-			},
-			want: &User{
-				ID:   "id1",
-				Name: "user1",
-				Cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Create collection with not valid doc",
-			s:    NewService(),
-			args: args{
-				id:   "id1",
-				name: "user1",
-				cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"},
-				doc: &documentstore.Document{
-					Fields: map[string]documentstore.DocumentField{
-						"id1": {
-							Type:  documentstore.DocumentFieldTypeString,
-							Value: "user1",
-						},
-					},
-				},
-			},
-			want: &User{
-				ID:   "id1",
-				Name: "user1",
-				Cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Create collection with user nil",
-			s:    NewService(),
-			args: args{
-				doc: &documentstore.Document{
-					Fields: map[string]documentstore.DocumentField{},
-				},
-			},
-			want:    &User{},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.s.CreateUser(tt.args.id, tt.args.name, tt.args.cfg, tt.args.doc)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Service.CreateUser() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Service.CreateUser() = %v, want %v", got, tt.want)
-			}
-		})
+		s.CreateUser("id1", "user1", &d1)
 	}
 }
 
 func TestService_GetUser(t *testing.T) {
+	doc1 := []documentstore.Document{
+		{Fields: GetTestFields("u1", "Andrii", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u2", "Lubov", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u4", "Taras", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u3", "Roman", documentstore.DocumentFieldTypeString)},
+	}
+	store := documentstore.NewStore()
+	_, colection := store.CreateCollection("name", "id") // створює колекцію з первинним ключем "id"
+	for _, doc := range doc1 {
+		colection.Put(doc)
+	}
+	collect, _ := store.GetCollection("name")
 	type args struct {
 		userID string
 	}
@@ -121,29 +43,26 @@ func TestService_GetUser(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "user exists",
+			name: "GET user",
 			s: &Service{
-				users: map[string]User{
-					"id1": {
-						ID:   "id1",
-						Name: "John",
-						Cfg:  documentstore.CollectionConfig{PrimaryKey: "id"},
-					},
-				}},
+				coll: collect,
+			},
 			args: args{
-				userID: "id1",
+				userID: "u3",
 			},
 			want: &User{
-				ID:   "id1",
-				Name: "John",
-				Cfg:  documentstore.CollectionConfig{PrimaryKey: "id"},
+				ID:   "u3",
+				Name: "Roman",
 			},
 			wantErr: false,
 		},
 		{
-			name: "user does not exist",
+			name: "GET user",
 			s: &Service{
-				users: map[string]User{},
+				coll: collect,
+			},
+			args: args{
+				userID: "u5",
 			},
 			want:    nil,
 			wantErr: true,
@@ -163,7 +82,44 @@ func TestService_GetUser(t *testing.T) {
 	}
 }
 
+func GetTestFields(v, name string, t documentstore.DocumentFieldType) map[string]documentstore.DocumentField {
+	docs := make(map[string]documentstore.DocumentField)
+	docs["id"] = documentstore.DocumentField{
+		Type:  documentstore.DocumentFieldTypeString,
+		Value: v,
+	}
+	docs["name"] = documentstore.DocumentField{
+		Type:  documentstore.DocumentFieldTypeString,
+		Value: name,
+	}
+	return docs
+}
+
+func GetTestDocuments(fields ...map[string]documentstore.DocumentField) documentstore.Document {
+	document := documentstore.Document{
+		Fields: make(map[string]documentstore.DocumentField),
+	}
+	for _, field := range fields {
+		for k, v := range field {
+			document.Fields[k] = v
+		}
+	}
+	return document
+}
 func TestService_DeleteUser(t *testing.T) {
+
+	doc1 := []documentstore.Document{
+		{Fields: GetTestFields("u1", "Andrii", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u4", "Taras", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u3", "Roman", documentstore.DocumentFieldTypeString)},
+	}
+	store := documentstore.NewStore()
+	_, colection := store.CreateCollection("name", "id") // створює колекцію з первинним ключем "id"
+	for _, doc := range doc1 {
+		colection.Put(doc)
+	}
+	collect, _ := store.GetCollection("name")
+
 	type args struct {
 		userID string
 	}
@@ -173,26 +129,20 @@ func TestService_DeleteUser(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
+
 		{
-			name: "user exists",
-			s: &Service{
-				users: map[string]User{
-					"id1": {
-						ID:   "id1",
-						Name: "John",
-						Cfg:  documentstore.CollectionConfig{PrimaryKey: "id"},
-					},
-				}},
+			name: "delete user for key",
+			s:    &Service{coll: collect},
 			args: args{
-				userID: "id1",
+				userID: "u1",
 			},
 			wantErr: false,
 		},
 		{
-			name: "user does not exist",
-			s:    &Service{},
+			name: "not delete user for key",
+			s:    &Service{coll: collect},
 			args: args{
-				userID: "id1",
+				userID: "u2",
 			},
 			wantErr: true,
 		},
@@ -207,6 +157,26 @@ func TestService_DeleteUser(t *testing.T) {
 }
 
 func TestService_ListUsers(t *testing.T) {
+	doc1 := []documentstore.Document{
+		{Fields: GetTestFields("u1", "Andrii", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u4", "Taras", documentstore.DocumentFieldTypeString)},
+		{Fields: GetTestFields("u3", "Roman", documentstore.DocumentFieldTypeString)},
+	}
+	store := documentstore.NewStore()
+	_, colection := store.CreateCollection("name", "id")
+	for _, doc := range doc1 {
+		colection.Put(doc)
+	}
+	collect, _ := store.GetCollection("name")
+
+	storeEmpty := documentstore.NewStore()
+	_, colectionEmpty := storeEmpty.CreateCollection("name", "id")
+	doc2 := []documentstore.Document{}
+	for _, docEmpty := range doc2 {
+		colectionEmpty.Put(docEmpty)
+	}
+	collectEmpty, _ := storeEmpty.GetCollection("name")
+
 	tests := []struct {
 		name    string
 		s       *Service
@@ -214,42 +184,22 @@ func TestService_ListUsers(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "valid List with user",
+			name: "List for users",
 			s: &Service{
-				users: map[string]User{
-					"id1": {
-						ID:   "id1",
-						Name: "John",
-						Cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"},
-					},
-					"id2": {
-						ID:   "id2",
-						Name: "Smit",
-						Cfg:  documentstore.CollectionConfig{PrimaryKey: "id2"},
-					},
-					"id3": {
-						ID:   "id3",
-						Name: "Jek",
-						Cfg:  documentstore.CollectionConfig{PrimaryKey: "id3"},
-					},
-				},
+				coll: collect,
 			},
 			want: []User{
-				{ID: "id1",
-					Name: "John",
-					Cfg:  documentstore.CollectionConfig{PrimaryKey: "id1"}},
-				{ID: "id2",
-					Name: "Smit",
-					Cfg:  documentstore.CollectionConfig{PrimaryKey: "id2"}},
-				{ID: "id3",
-					Name: "Jek",
-					Cfg:  documentstore.CollectionConfig{PrimaryKey: "id3"}},
+				{ID: "u1", Name: "Andrii"},
+				{ID: "u4", Name: "Taras"},
+				{ID: "u3", Name: "Roman"},
 			},
 			wantErr: false,
 		},
 		{
-			name:    "empty user list",
-			s:       &Service{users: map[string]User{}},
+			name: "List for empty",
+			s: &Service{
+				coll: collectEmpty,
+			},
 			want:    nil,
 			wantErr: true,
 		},
@@ -266,4 +216,94 @@ func TestService_ListUsers(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_CreateUser(t *testing.T) {
+	doc1 := documentstore.Document{
+		Fields: GetTestFields("u1", "Andrii", documentstore.DocumentFieldTypeString),
+	}
+	docBad := documentstore.Document{
+		Fields: map[string]documentstore.DocumentField{
+			"id": {
+				Type:  documentstore.DocumentFieldTypeNumber,
+				Value: 123,
+			},
+			"name": {
+				Type:  documentstore.DocumentFieldTypeString,
+				Value: "badUser",
+			},
+		},
+	}
+
+	type args struct {
+		id   string
+		name string
+		doc  *documentstore.Document
+	}
+	tests := []struct {
+		name    string
+		s       func() *Service
+		args    args
+		want    *User
+		wantErr bool
+	}{
+		{name: "Create new user successfully",
+			s: func() *Service {
+				store := documentstore.NewStore()
+				_, coll := store.CreateCollection("name", "id")
+				return &Service{coll: coll}
+			},
+			args: args{
+				id:   "u1",
+				name: "Andrii",
+				doc:  &doc1},
+			want: &User{
+				ID:   "u1",
+				Name: "Andrii",
+			},
+			wantErr: false,
+		},
+		{name: "Create user that already exists",
+			s: func() *Service {
+				store := documentstore.NewStore()
+				_, coll := store.CreateCollection("name", "id")
+				coll.Put(doc1)
+				return &Service{coll: coll}
+			},
+			args: args{
+				id:   "u1",
+				name: "Andrii",
+				doc:  &doc1},
+			want:    nil,
+			wantErr: true,
+		},
+		{name: "Create user with invalid document field type",
+			s: func() *Service {
+				store := documentstore.NewStore()
+				_, coll := store.CreateCollection("name", "id")
+				return &Service{coll: coll}
+			},
+			args: args{
+				id:   "bad",
+				name: "badUser",
+				doc:  &docBad,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := tt.s()
+			got, err := setup.CreateUser(tt.args.id, tt.args.name, tt.args.doc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Service.CreateUser() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Service.CreateUser() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
 }
